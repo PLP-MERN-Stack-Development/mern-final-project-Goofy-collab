@@ -435,7 +435,7 @@ router.post('/:id/save', protect, async (req, res, next) => {
     const User = (await import('../models/User.js')).default;
     const user = await User.findById(req.user._id);
 
-    const isSaved = user.savedRecipes.includes(req.params.id);
+    const isSaved = Array.isArray(user.savedRecipes) ? user.savedRecipes.includes(req.params.id) : false;
 
     if (isSaved) {
       return res.status(400).json({
@@ -467,7 +467,7 @@ router.delete('/:id/save', protect, async (req, res, next) => {
     const User = (await import('../models/User.js')).default;
     const user = await User.findById(req.user._id);
 
-    user.savedRecipes = user.savedRecipes.filter(
+    user.savedRecipes = (Array.isArray(user.savedRecipes) ? user.savedRecipes : []).filter(
       id => id.toString() !== req.params.id
     );
 

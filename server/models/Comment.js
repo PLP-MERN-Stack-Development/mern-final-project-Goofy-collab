@@ -25,10 +25,10 @@ const commentSchema = new mongoose.Schema(
       min: [1, 'Rating must be at least 1'],
       max: [5, 'Rating cannot exceed 5']
     },
-    likes: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
-    }],
+    likes: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+      default: []
+    },
     likesCount: {
       type: Number,
       default: 0
@@ -71,7 +71,7 @@ commentSchema.virtual('replyCount', {
 // Update likesCount when likes array changes
 commentSchema.pre('save', function(next) {
   if (this.isModified('likes')) {
-    this.likesCount = this.likes.length;
+    this.likesCount = Array.isArray(this.likes) ? this.likes.length : 0;
   }
   next();
 });
@@ -136,7 +136,7 @@ commentSchema.index({ parentComment: 1 });
 
 // Method to check if user has liked the comment
 commentSchema.methods.isLikedBy = function(userId) {
-  return this.likes.some(id => id.toString() === userId.toString());
+  return Array.isArray(this.likes) ? this.likes.some(id => id.toString() === userId.toString()) : false;
 };
 
 const Comment = mongoose.model('Comment', commentSchema);

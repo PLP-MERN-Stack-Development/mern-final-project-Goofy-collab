@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useRecipes } from '../context/RecipeContext';
 import { 
   ChefHat, ArrowLeft, Upload, X, Plus, Minus, Clock, Users, 
   ImagePlus, Save, Eye, AlertCircle 
@@ -41,6 +43,65 @@ const CreateRecipePage = () => {
 
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const { createRecipe, updateRecipe, getRecipeById } = useRecipes();
+
+  useEffect(() => {
+    let mounted = true;
+    const loadRecipe = async () => {
+      if (!id) return;
+      setIsLoading(true);
+      try {
+        const result = await getRecipeById(id);
+        if (!mounted) return;
+        if (result.success && result.recipe) {
+          const r = result.recipe;
+          setIsEditing(true);
+          setRecipeData(prev => ({
+            ...prev,
+            title: r.title || '',
+            description: r.description || '',
+            category: r.category || '',
+            cuisine: r.cuisine || '',
+            difficulty: r.difficulty || 'Medium',
+            prepTime: r.prepTime?.toString() || '',
+            cookTime: r.cookTime?.toString() || '',
+            servings: r.servings?.toString() || '',
+            image: r.image || null
+          }));
+
+          setIngredients((r.ingredients || []).map((ing, i) => ({ id: Date.now() + i, item: ing.item || '', amount: ing.amount || '', category: ing.category || 'Main' })));
+
+          setInstructions((r.instructions || []).map((inst, i) => ({ id: Date.now() + i, title: inst.title || '', description: inst.description || '', time: inst.time || '' })));
+
+          setTags(r.tags || []);
+
+          setNutritionInfo({
+            calories: r.nutritionInfo?.calories?.toString() || '',
+            protein: r.nutritionInfo?.protein?.toString() || '',
+            carbs: r.nutritionInfo?.carbs?.toString() || '',
+            fat: r.nutritionInfo?.fat?.toString() || '',
+            fiber: r.nutritionInfo?.fiber?.toString() || ''
+          });
+
+          if (r.image) setImagePreview(r.image);
+        } else {
+          setErrors({ form: result.error || 'Failed to load recipe' });
+        }
+      } catch (err) {
+        setErrors({ form: err.message });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadRecipe();
+
+    return () => { mounted = false; };
+  }, [id, getRecipeById]);
 
   // Categories and cuisines
   const categories = ['Breakfast', 'Lunch', 'Dinner', 'Dessert', 'Snack', 'Appetizer', 'Beverage'];
@@ -173,20 +234,69 @@ const CreateRecipePage = () => {
       return;
     }
 
-    setIsLoading(true);
+    const submit = async () => {
+      setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      console.log('Recipe Data:', {
-        ...recipeData,
-        ingredients,
-        instructions,
+      // Build payload
+      const payload = {
+        title: recipeData.title,
+        description: recipeData.description,
+        category: recipeData.category,
+        cuisine: recipeData.cuisine,
+        difficulty: recipeData.difficulty,
+        prepTime: parseInt(recipeData.prepTime) || 0,
+        cookTime: parseInt(recipeData.cookTime) || 0,
+        totalTime: (parseInt(recipeData.prepTime) || 0) + (parseInt(recipeData.cookTime) || 0),
+        servings: parseInt(recipeData.servings) || 1,
+        ingredients: ingredients.map((ing) => ({ item: ing.item, amount: ing.amount, category: ing.category })),
+        instructions: instructions.map((inst, i) => ({ step: i + 1, title: inst.title || '', description: inst.description, time: inst.time || '' })),
         tags,
-        nutritionInfo
-      });
-      alert('Recipe submitted successfully! (Demo)');
-    }, 2000);
+        nutritionInfo: {
+          calories: nutritionInfo.calories ? Number(nutritionInfo.calories) : 0,
+          protein: nutritionInfo.protein ? Number(nutritionInfo.protein) : 0,
+          carbs: nutritionInfo.carbs ? Number(nutritionInfo.carbs) : 0,
+          fat: nutritionInfo.fat ? Number(nutritionInfo.fat) : 0,
+          fiber: nutritionInfo.fiber ? Number(nutritionInfo.fiber) : 0
+        }
+      };
+
+      // If user uploaded an image file, include image preview (data URL) so backend has a string to store.
+      // Ideally this would upload to Cloudinary and use the returned URL, but the backend accepts a string field for `image`.
+      if (recipeData.image && recipeData.image instanceof File && imagePreview) {
+        payload.image = imagePreview;
+      } else if (recipeData.image && typeof recipeData.image === 'string') {
+        payload.image = recipeData.image;
+      }
+
+      try {
+        let result;
+        if (isEditing && id) {
+          // Update existing recipe
+          result = await updateRecipe(id, payload);
+        } else {
+          result = await createRecipe(payload);
+        }
+
+        if (result.success) {
+          const newRecipe = result.recipe || {};
+          // Prefer _id, then id
+          const recipeId = newRecipe._id || newRecipe.id || newRecipe._id?.toString();
+          // Navigate to recipe detail page
+          if (recipeId) navigate(`/recipes/${recipeId}`);
+          else navigate('/recipes');
+        } else {
+          // Show error
+          setErrors({ form: result.error || 'Failed to save recipe' });
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      } catch (err) {
+        setErrors({ form: err.message || 'Unexpected error' });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    submit();
   };
 
   // Calculate total time
@@ -200,11 +310,11 @@ const CreateRecipePage = () => {
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
               <button className="text-gray-600 hover:text-orange-600">
-                <ArrowLeft className="w-6 h-6" />
+                {/* <ArrowLeft className="w-6 h-6" /> */}
               </button>
               <div className="flex items-center space-x-2">
-                <ChefHat className="w-8 h-8 text-orange-600" />
-                <h1 className="text-2xl font-bold text-gray-900">RecipeShare</h1>
+                {/* <ChefHat className="w-8 h-8 text-orange-600" /> */}
+                {/* <h1 className="text-2xl font-bold text-gray-900">RecipeShare</h1> */}
               </div>
             </div>
             

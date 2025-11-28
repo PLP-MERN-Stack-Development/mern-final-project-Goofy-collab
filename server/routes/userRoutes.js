@@ -141,8 +141,8 @@ router.get('/:id/stats', async (req, res, next) => {
       success: true,
       stats: {
         ...stats,
-        followerCount: user.followers.length,
-        followingCount: user.following.length,
+        followerCount: Array.isArray(user.followers) ? user.followers.length : 0,
+        followingCount: Array.isArray(user.following) ? user.following.length : 0,
         categories: categoryStats.map(c => ({ name: c._id, count: c.count }))
       }
     });
@@ -177,7 +177,7 @@ router.post('/:id/follow', protect, async (req, res, next) => {
 
     const currentUser = await User.findById(req.user._id);
 
-    const isFollowing = currentUser.following.includes(req.params.id);
+    const isFollowing = Array.isArray(currentUser.following) ? currentUser.following.includes(req.params.id) : false;
 
     if (isFollowing) {
       // Unfollow
@@ -232,7 +232,7 @@ router.get('/:id/followers', async (req, res, next) => {
       });
     }
 
-    const total = user.followers.length;
+    const total = Array.isArray(user.followers) ? user.followers.length : 0;
 
     res.status(200).json({
       success: true,
@@ -275,7 +275,7 @@ router.get('/:id/following', async (req, res, next) => {
       });
     }
 
-    const total = user.following.length;
+    const total = Array.isArray(user.following) ? user.following.length : 0;
 
     res.status(200).json({
       success: true,

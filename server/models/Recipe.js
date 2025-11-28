@@ -140,10 +140,10 @@ const recipeSchema = new mongoose.Schema(
       trim: true,
       lowercase: true
     }],
-    likes: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
-    }],
+    likes: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+      default: []
+    },
     likesCount: {
       type: Number,
       default: 0
@@ -207,7 +207,7 @@ recipeSchema.pre('save', function(next) {
 // Update likesCount when likes array changes
 recipeSchema.pre('save', function(next) {
   if (this.isModified('likes')) {
-    this.likesCount = this.likes.length;
+    this.likesCount = Array.isArray(this.likes) ? this.likes.length : 0;
   }
   next();
 });
@@ -225,7 +225,7 @@ recipeSchema.index({ views: -1 });
 
 // Method to check if user has liked the recipe
 recipeSchema.methods.isLikedBy = function(userId) {
-  return this.likes.some(id => id.toString() === userId.toString());
+  return Array.isArray(this.likes) ? this.likes.some(id => id.toString() === userId.toString()) : false;
 };
 
 // Method to increment views

@@ -65,18 +65,21 @@ const userSchema = new mongoose.Schema(
     emailVerificationExpires: Date,
     resetPasswordToken: String,
     resetPasswordExpires: Date,
-    followers: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
-    }],
-    following: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
-    }],
-    savedRecipes: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Recipe'
-    }],
+    followers: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+      default: []
+    },
+    // Ensure arrays exist by default to avoid undefined on virtuals
+    // Note: Mongoose will treat a property defined as an array as [] by default when creating new docs,
+    // but adding explicit defaults helps when documents are partially projected.
+    following: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+      default: []
+    },
+    savedRecipes: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Recipe' }],
+      default: []
+    },
     isActive: {
       type: Boolean,
       default: true
@@ -95,12 +98,12 @@ const userSchema = new mongoose.Schema(
 
 // Virtual for follower count
 userSchema.virtual('followerCount').get(function() {
-  return this.followers.length;
+  return Array.isArray(this.followers) ? this.followers.length : 0;
 });
 
 // Virtual for following count
 userSchema.virtual('followingCount').get(function() {
-  return this.following.length;
+  return Array.isArray(this.following) ? this.following.length : 0;
 });
 
 // Virtual for recipe count
@@ -147,8 +150,8 @@ userSchema.methods.getPublicProfile = function() {
     location: this.location,
     website: this.website,
     socialLinks: this.socialLinks,
-    followerCount: this.followers.length,
-    followingCount: this.following.length,
+    followerCount: Array.isArray(this.followers) ? this.followers.length : 0,
+    followingCount: Array.isArray(this.following) ? this.following.length : 0,
     createdAt: this.createdAt
   };
 };

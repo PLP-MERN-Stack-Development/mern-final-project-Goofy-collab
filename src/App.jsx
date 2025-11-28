@@ -1,6 +1,6 @@
 // src/App.jsx
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { RecipeProvider } from './context/RecipeContext';
 
@@ -9,6 +9,7 @@ import HomePage from './pages/HomePage';
 import RecipeDetailPage from './pages/RecipeDetailPage';
 import CreateRecipePage from './pages/CreateRecipePage';
 import AuthPages from './pages/AuthPages';
+import AboutPage from './pages/AboutPage';
 import UserProfilePage from './pages/UserProfilePage';
 
 // Layout Components
@@ -75,9 +76,9 @@ function App() {
 function AppRoutes() {
   const { user } = useAuth();
 
-  const handleNavigate = (path) => {
-    window.location.href = path;
-  };
+  // useNavigate gives us SPA-friendly navigation (no full page reload)
+  const navigate = useNavigate();
+  const handleNavigate = (path) => navigate(path);
 
   return (
     <Routes>
@@ -105,6 +106,16 @@ function AppRoutes() {
         element={
           <MainLayout user={user} onNavigate={handleNavigate}>
             <RecipeDetailPage />
+          </MainLayout>
+        }
+      />
+
+      {/* About page - static info page */}
+      <Route
+        path="/about"
+        element={
+          <MainLayout user={user} onNavigate={handleNavigate}>
+            <AboutPage />
           </MainLayout>
         }
       />

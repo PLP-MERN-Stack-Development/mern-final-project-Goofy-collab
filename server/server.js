@@ -19,11 +19,19 @@ const app = express();
 // Middleware
 app.use(helmet()); // Security headers
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: process.env.CLIENT_URL,
   credentials: true
 }));
-app.use(express.json()); // Parse JSON bodies
-app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
+
+// NOTE: Some clients (or the current demo) send base64 encoded images inside JSON which
+// can quickly exceed the default body size limit. The default `express.json()` limit is
+// small (100kb). For a short-term fix we increase allowed request size — but the recommended
+// long-term solution is to upload images via multipart/FormData to a dedicated endpoint or
+// upload directly to a hosting provider (Cloudinary) and send only the image URL in JSON.
+
+// Allow larger JSON / URL-encoded payloads (e.g. when clients include data URLs)
+app.use(express.json({ limit: '6mb' })); // increase JSON body limit to 6MB
+app.use(express.urlencoded({ extended: true, limit: '6mb' })); // increase urlencoded limit
 app.use(morgan('dev')); // HTTP request logging
 
 // API Routes
@@ -73,7 +81,7 @@ const server = app.listen(PORT, () => {
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
-  console.error('❌ Unhandled Rejection:', err.message);
+  console.error('Unhandled Rejection:', err.message);
   // Close server & exit process
   server.close(() => process.exit(1));
 });

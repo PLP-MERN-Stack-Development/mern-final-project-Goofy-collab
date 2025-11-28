@@ -48,7 +48,7 @@ export const Footer = ({ onNavigate }) => {
               </li>
               <li>
                 <button 
-                  onClick={() => onNavigate && onNavigate('/recipes/new')}
+                  onClick={() => onNavigate && onNavigate('/create')}
                   className="hover:text-orange-500 transition"
                 >
                   New Recipes
