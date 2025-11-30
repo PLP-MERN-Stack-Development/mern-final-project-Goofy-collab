@@ -10,6 +10,7 @@ export const RecipeCard = ({
   showAuthor = true,
   compact = false
 }) => {
+  const id = recipe._id || recipe.id;
   const [isLiked, setIsLiked] = useState(recipe.isLiked || false);
   const [isSaved, setIsSaved] = useState(recipe.isSaved || false);
   const [likesCount, setLikesCount] = useState(recipe.likes || 0);
@@ -18,13 +19,13 @@ export const RecipeCard = ({
     e.stopPropagation();
     setIsLiked(!isLiked);
     setLikesCount(prev => isLiked ? prev - 1 : prev + 1);
-    if (onLike) onLike(recipe.id, !isLiked);
+    if (onLike) onLike(id, !isLiked);
   };
 
   const handleSave = (e) => {
     e.stopPropagation();
     setIsSaved(!isSaved);
-    if (onSave) onSave(recipe.id, !isSaved);
+    if (onSave) onSave(id, !isSaved);
   };
 
   const renderStars = (rating) => {

@@ -5,7 +5,7 @@ import { AuthProvider } from './context/AuthContext';
 import { RecipeProvider } from './context/RecipeContext';
 
 // Pages
-import HomePage from './pages/HomePage';
+import LandingPage from './pages/HomePage';
 import RecipeDetailPage from './pages/RecipeDetailPage';
 import CreateRecipePage from './pages/CreateRecipePage';
 import AuthPages from './pages/AuthPages';
@@ -87,7 +87,7 @@ function AppRoutes() {
         path="/"
         element={
           <MainLayout user={user} onNavigate={handleNavigate}>
-            <HomePage />
+            <LandingPage />
           </MainLayout>
         }
       />
@@ -96,7 +96,7 @@ function AppRoutes() {
         path="/recipes"
         element={
           <MainLayout user={user} onNavigate={handleNavigate}>
-            <HomePage />
+            <RecipeDetailPage />
           </MainLayout>
         }
       />
@@ -124,7 +124,7 @@ function AppRoutes() {
         path="/categories"
         element={
           <MainLayout user={user} onNavigate={handleNavigate}>
-            <HomePage />
+            <LandingPage />
           </MainLayout>
         }
       />
@@ -133,7 +133,7 @@ function AppRoutes() {
         path="/categories/:category"
         element={
           <MainLayout user={user} onNavigate={handleNavigate}>
-            <HomePage />
+            <LandingPage />
           </MainLayout>
         }
       />
@@ -142,7 +142,7 @@ function AppRoutes() {
         path="/cuisines/:cuisine"
         element={
           <MainLayout user={user} onNavigate={handleNavigate}>
-            <HomePage />
+            <LandingPage />
           </MainLayout>
         }
       />
@@ -151,7 +151,7 @@ function AppRoutes() {
         path="/search"
         element={
           <MainLayout user={user} onNavigate={handleNavigate}>
-            <HomePage />
+            <LandingPage />
           </MainLayout>
         }
       />

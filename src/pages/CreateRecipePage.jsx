@@ -279,10 +279,35 @@ const CreateRecipePage = () => {
 
         if (result.success) {
           const newRecipe = result.recipe || {};
-          // Prefer _id, then id
-          const recipeId = newRecipe._id || newRecipe.id || newRecipe._id?.toString();
-          // Navigate to recipe detail page
-          if (recipeId) navigate(`/recipes/${recipeId}`);
+
+          // Normalize id: server sometimes returns _id as an object (or has id)
+          const normalizeId = (r) => {
+            const candidate = r?._id ?? r?.id;
+            if (!candidate) return null;
+            // If it's already a string, use it
+            if (typeof candidate === 'string') return candidate;
+            // If Mongoose ObjectId or similar - try toString()
+            if (candidate && typeof candidate.toString === 'function') return candidate.toString();
+            // If it uses {$oid: '...'} shape
+            if (typeof candidate === 'object' && candidate.$oid) return candidate.$oid;
+            return String(candidate);
+          };
+
+          const recipeId = normalizeId(newRecipe);
+
+          // Persist the created recipe locally as a fallback for reload/navigation races
+          try {
+            const stored = JSON.parse(localStorage.getItem('recentlyCreatedRecipes') || '[]');
+            const entry = { id: recipeId, recipe: newRecipe };
+            const dedup = stored.filter(r => r.id !== recipeId).slice(0, 49); // keep max 50
+            localStorage.setItem('recentlyCreatedRecipes', JSON.stringify([entry, ...dedup]));
+          } catch (e) {
+            // ignore storage errors
+            console.warn('Could not save recently created recipe', e);
+          }
+
+          // Navigate to recipe detail page (guard against invalid IDs)
+          if (recipeId && recipeId !== 'undefined') navigate(`/recipes/${recipeId}`);
           else navigate('/recipes');
         } else {
           // Show error

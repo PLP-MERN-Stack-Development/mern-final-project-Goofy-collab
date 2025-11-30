@@ -87,7 +87,10 @@ export const useRecipes = () => {
 
   // Get saved recipe objects (not just IDs)
   const getSavedRecipeObjects = useCallback(() => {
-    return recipes.filter(recipe => savedRecipes.includes(recipe.id));
+    return recipes.filter(recipe => {
+      const rId = recipe._id ?? recipe.id;
+      return savedRecipes.includes(rId?.toString?.() ?? String(rId));
+    });
   }, [recipes, savedRecipes]);
 
   // ============================================

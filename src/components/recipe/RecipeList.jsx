@@ -39,7 +39,7 @@ export const RecipeList = ({
     <div className={`grid ${gridClasses[gridCols]} gap-6`}>
       {recipes.map(recipe => (
         <RecipeCard
-          key={recipe.id}
+          key={recipe._id || recipe.id}
           recipe={recipe}
           onClick={onRecipeClick}
           onLike={onLike}

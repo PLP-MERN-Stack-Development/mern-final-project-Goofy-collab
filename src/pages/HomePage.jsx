@@ -1,94 +1,62 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useRecipes } from '../context/RecipeContext';
 import { Search, Clock, Users, Star, ChefHat, TrendingUp, Filter } from 'lucide-react';
 
-// Mock data for demonstration
-const mockRecipes = [
-  {
-    id: 1,
-    title: "Classic Margherita Pizza",
-    description: "Authentic Italian pizza with fresh mozzarella and basil",
-    image: "https://images.unsplash.com/photo-1604068549290-dea0e4a305ca?w=800&q=80",
-    author: "Chef Mario",
-    cookTime: 30,
-    servings: 4,
-    rating: 4.8,
-    difficulty: "Medium",
-    category: "Italian"
-  },
-  {
-    id: 2,
-    title: "Spicy Thai Basil Chicken",
-    description: "Quick and flavorful stir-fry with aromatic Thai basil",
-    image: "https://images.unsplash.com/photo-1562565652-a0d8f0c59eb4?w=800&q=80",
-    author: "Chef Somchai",
-    cookTime: 20,
-    servings: 3,
-    rating: 4.9,
-    difficulty: "Easy",
-    category: "Thai"
-  },
-  {
-    id: 3,
-    title: "Creamy Mushroom Risotto",
-    description: "Rich and creamy Italian rice dish with porcini mushrooms",
-    image: "https://images.unsplash.com/photo-1476124369491-c4f1b0b3c865?w=800&q=80",
-    author: "Chef Elena",
-    cookTime: 45,
-    servings: 4,
-    rating: 4.7,
-    difficulty: "Hard",
-    category: "Italian"
-  },
-  {
-    id: 4,
-    title: "Japanese Ramen Bowl",
-    description: "Authentic tonkotsu ramen with soft-boiled eggs",
-    image: "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=800&q=80",
-    author: "Chef Takeshi",
-    cookTime: 60,
-    servings: 2,
-    rating: 4.9,
-    difficulty: "Hard",
-    category: "Japanese"
-  },
-  {
-    id: 5,
-    title: "Fresh Greek Salad",
-    description: "Light and refreshing Mediterranean salad",
-    image: "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=800&q=80",
-    author: "Chef Dimitri",
-    cookTime: 15,
-    servings: 4,
-    rating: 4.6,
-    difficulty: "Easy",
-    category: "Greek"
-  },
-  {
-    id: 6,
-    title: "Chocolate Lava Cake",
-    description: "Decadent dessert with molten chocolate center",
-    image: "https://images.unsplash.com/photo-1624353365286-3f8d62daad51?w=800&q=80",
-    author: "Chef Sophie",
-    cookTime: 25,
-    servings: 6,
-    rating: 4.8,
-    difficulty: "Medium",
-    category: "Dessert"
-  }
-];
+// Use the app's recipe context for live data
 
 const categories = ["All", "Italian", "Thai", "Japanese", "Greek", "Dessert", "Mexican", "Indian"];
 const difficulties = ["All", "Easy", "Medium", "Hard"];
 
 const LandingPage = () => {
-  const [recipes, setRecipes] = useState(mockRecipes);
+  const navigate = useNavigate();
+  const { recipes, loading, fetchRecipes, searchRecipes } = useRecipes();
+  // Local fallback while context loads
+  const [localRecipes, setLocalRecipes] = useState([]);
+
+  // Load initial recipes on mount
+  useEffect(() => {
+    fetchRecipes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep a local fallback copy so UI can render a placeholder if context is empty/loading
+  useEffect(() => {
+    if (Array.isArray(recipes) && recipes.length > 0) {
+      setLocalRecipes(recipes);
+    }
+  }, [recipes]);
+
+  // Local search/filter state (must be declared before effects that use them)
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedDifficulty, setSelectedDifficulty] = useState('All');
   const [showFilters, setShowFilters] = useState(false);
 
+  // When filters/search change, fetch new results
+  useEffect(() => {
+    const doSearchOrFilter = async () => {
+      if (searchTerm && searchTerm.trim().length > 0) {
+        await searchRecipes(searchTerm);
+      } else {
+        const filterOptions = {};
+        if (selectedCategory && selectedCategory !== 'All') filterOptions.category = selectedCategory;
+        if (selectedDifficulty && selectedDifficulty !== 'All') filterOptions.difficulty = selectedDifficulty;
+        await fetchRecipes(filterOptions);
+      }
+    };
+
+    // Debounce search slightly to avoid excessive requests
+    const debounce = setTimeout(() => doSearchOrFilter(), 300);
+    return () => clearTimeout(debounce);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, selectedCategory, selectedDifficulty]);
+
   // Filter recipes based on search and filters
-  const filteredRecipes = recipes.filter(recipe => {
+  // prefer live context data; fall back to localRecipes during loading
+  const allRecipes = (!loading && Array.isArray(recipes) && recipes.length > 0) ? recipes : localRecipes;
+
+  const filteredRecipes = (allRecipes || []).filter(recipe => {
     const matchesSearch = recipe.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          recipe.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || recipe.category === selectedCategory;
@@ -230,7 +198,11 @@ const LandingPage = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredRecipes.map(recipe => (
-              <div key={recipe.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 cursor-pointer">
+              <div
+                key={recipe._id || recipe.id}
+                onClick={() => navigate(`/recipes/${recipe._id || recipe.id}`)}
+                className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 cursor-pointer"
+              >
                 <div className="relative h-48 overflow-hidden">
                   <img
                     src={recipe.image}
@@ -238,7 +210,7 @@ const LandingPage = () => {
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute top-4 right-4 bg-white px-3 py-1 rounded-full shadow-md">
-                    <span className={`text-sm font-semibold ${
+                      <span className={`text-sm font-semibold ${
                       recipe.difficulty === 'Easy' ? 'text-green-600' :
                       recipe.difficulty === 'Medium' ? 'text-yellow-600' :
                       'text-red-600'
@@ -253,7 +225,7 @@ const LandingPage = () => {
                     <span className="text-sm text-orange-600 font-semibold">{recipe.category}</span>
                     <div className="flex items-center">
                       <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                      <span className="ml-1 text-sm font-semibold text-gray-700">{recipe.rating}</span>
+                        <span className="ml-1 text-sm font-semibold text-gray-700">{recipe.rating ?? '-'}</span>
                     </div>
                   </div>
                   
@@ -262,17 +234,17 @@ const LandingPage = () => {
                   
                   <div className="flex items-center justify-between text-sm text-gray-500 border-t pt-4">
                     <div className="flex items-center">
-                      <Clock className="w-4 h-4 mr-1" />
-                      <span>{recipe.cookTime} min</span>
+                        <Clock className="w-4 h-4 mr-1" />
+                        <span>{recipe.cookTime ?? '-'} min</span>
                     </div>
                     <div className="flex items-center">
                       <Users className="w-4 h-4 mr-1" />
-                      <span>{recipe.servings} servings</span>
+                      <span>{recipe.servings ?? '-'} servings</span>
                     </div>
                   </div>
                   
                   <div className="mt-4 text-sm text-gray-500">
-                    by <span className="font-semibold text-gray-700">{recipe.author}</span>
+                    by <span className="font-semibold text-gray-700">{recipe.author?.name || recipe.author || 'Unknown'}</span>
                   </div>
                 </div>
               </div>

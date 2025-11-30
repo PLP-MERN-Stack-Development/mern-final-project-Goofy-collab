@@ -1,4 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import recipeService from '../services/recipeService';
+import userService from '../services/userService';
 import { 
   ChefHat, ArrowLeft, Settings, MapPin, Calendar, Users, 
   Heart, Bookmark, Clock, Star, Edit, Share2, Mail,
@@ -8,123 +12,20 @@ import {
 const UserProfilePage = () => {
   const [activeTab, setActiveTab] = useState('recipes'); // recipes, saved, followers, following
 
-  // Mock user data
-  const userData = {
-    id: 1,
-    name: "Chef Mario Rossi",
-    username: "@chefmario",
-    avatar: "https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=300&q=80",
-    coverImage: "https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=1200&q=80",
-    bio: "Professional chef specializing in Italian cuisine. Sharing family recipes passed down through generations. 🇮🇹👨‍🍳",
-    location: "Rome, Italy",
-    joinedDate: "January 2023",
-    website: "www.chefmario.com",
-    social: {
-      instagram: "@chefmario",
-      twitter: "@chefmario"
-    },
-    stats: {
-      recipes: 45,
-      followers: 12500,
-      following: 234,
-      likes: 45200
-    },
-    badges: [
-      { id: 1, name: "Top Chef", icon: "👨‍🍳", color: "bg-yellow-100 text-yellow-700" },
-      { id: 2, name: "100 Recipes", icon: "📚", color: "bg-blue-100 text-blue-700" },
-      { id: 3, name: "10K Followers", icon: "⭐", color: "bg-purple-100 text-purple-700" }
-    ]
-  };
+  const { user: authUser, isAuthenticated } = useAuth();
+  const { userId } = useParams();
+  const navigate = useNavigate();
 
-  // Mock recipes data
-  const userRecipes = [
-    {
-      id: 1,
-      title: "Classic Margherita Pizza",
-      image: "https://images.unsplash.com/photo-1604068549290-dea0e4a305ca?w=400&q=80",
-      likes: 1234,
-      comments: 89,
-      cookTime: 30,
-      rating: 4.8,
-      status: "published"
-    },
-    {
-      id: 2,
-      title: "Homemade Pasta Carbonara",
-      image: "https://images.unsplash.com/photo-1612874742237-6526221588e3?w=400&q=80",
-      likes: 2156,
-      comments: 145,
-      cookTime: 25,
-      rating: 4.9,
-      status: "published"
-    },
-    {
-      id: 3,
-      title: "Tiramisu Dessert",
-      image: "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=400&q=80",
-      likes: 1876,
-      comments: 102,
-      cookTime: 45,
-      rating: 4.7,
-      status: "published"
-    },
-    {
-      id: 4,
-      title: "Risotto ai Funghi",
-      image: "https://images.unsplash.com/photo-1476124369491-c4f1b0b3c865?w=400&q=80",
-      likes: 945,
-      comments: 67,
-      cookTime: 40,
-      rating: 4.6,
-      status: "draft"
-    }
-  ];
+  const profileId = userId || authUser?.id || authUser?._id;
 
-  const savedRecipes = [
-    {
-      id: 5,
-      title: "Spicy Thai Basil Chicken",
-      image: "https://images.unsplash.com/photo-1562565652-a0d8f0c59eb4?w=400&q=80",
-      author: "Chef Somchai",
-      cookTime: 20,
-      rating: 4.9
-    },
-    {
-      id: 6,
-      title: "Japanese Ramen Bowl",
-      image: "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=400&q=80",
-      author: "Chef Takeshi",
-      cookTime: 60,
-      rating: 4.8
-    }
-  ];
-
-  const followers = [
-    {
-      id: 1,
-      name: "Sarah Chen",
-      username: "@sarahcooks",
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&q=80",
-      recipesCount: 28,
-      isFollowing: true
-    },
-    {
-      id: 2,
-      name: "John Smith",
-      username: "@johnsmith",
-      avatar: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=100&q=80",
-      recipesCount: 15,
-      isFollowing: false
-    },
-    {
-      id: 3,
-      name: "Emma Wilson",
-      username: "@emmawilson",
-      avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&q=80",
-      recipesCount: 42,
-      isFollowing: true
-    }
-  ];
+  const [userData, setUserData] = useState(null);
+  const [userRecipes, setUserRecipes] = useState([]);
+  const [savedRecipes, setSavedRecipes] = useState([]);
+  const [followers, setFollowers] = useState([]);
+  const [following, setFollowing] = useState([]);
+  const [stats, setStats] = useState({ recipes: 0, followers: 0, following: 0, likes: 0 });
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [loadingRecipes, setLoadingRecipes] = useState(false);
 
   const renderStars = (rating) => {
     return [...Array(5)].map((_, i) => (
@@ -139,10 +40,73 @@ const UserProfilePage = () => {
     ));
   };
 
+  // Load profile and recipes
+  useEffect(() => {
+    let mounted = true;
+    const loadProfile = async () => {
+      if (!profileId) return;
+      try {
+        setLoadingProfile(true);
+
+        // Get profile info
+        const profileRes = await userService.getUserById(profileId);
+        if (!mounted) return;
+        if (profileRes.success) {
+          setUserData(profileRes.user);
+        }
+
+        // Stats
+        const statsRes = await userService.getUserStats(profileId);
+        if (!mounted) return;
+        if (statsRes.success) {
+          setStats({
+            recipes: statsRes.stats.totalRecipes ?? statsRes.stats.total ?? 0,
+            followers: statsRes.stats.followerCount ?? 0,
+            following: statsRes.stats.followingCount ?? 0,
+            likes: statsRes.stats.totalLikes ?? 0
+          });
+        }
+
+        // Recipes
+        setLoadingRecipes(true);
+        const r = await recipeService.getUserRecipes(profileId, { limit: 50 });
+        if (!mounted) return;
+        if (r.success) setUserRecipes(r.recipes || []);
+
+        // Followers / following (load small sample)
+        const folRes = await userService.getFollowers(profileId, { limit: 12 });
+        if (!mounted) return;
+        if (folRes.success) setFollowers(folRes.followers || []);
+
+        const followingRes = await userService.getFollowing(profileId, { limit: 12 });
+        if (!mounted) return;
+        if (followingRes.success) setFollowing(followingRes.following || []);
+
+        // If this is the current user's profile, get saved recipes
+        if (!userId && authUser) {
+          const saved = await recipeService.getSavedRecipes();
+          if (!mounted) return;
+          if (saved.success) setSavedRecipes(saved.recipes || []);
+        }
+
+      } catch (err) {
+        console.error('Profile load failed', err);
+      } finally {
+        if (mounted) {
+          setLoadingProfile(false);
+          setLoadingRecipes(false);
+        }
+      }
+    };
+
+    loadProfile();
+    return () => { mounted = false; };
+  }, [profileId]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-md sticky top-0 z-50">
+      {/* <header className="bg-white shadow-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
@@ -165,15 +129,19 @@ const UserProfilePage = () => {
             </div>
           </div>
         </div>
-      </header>
+      </header> */}
 
       {/* Cover Image */}
       <div className="relative h-64 bg-gradient-to-r from-orange-400 to-red-500">
-        <img
-          src={userData.coverImage}
-          alt="Cover"
-          className="w-full h-full object-cover opacity-80"
-        />
+        {userData?.coverImage ? (
+          <img
+            src={userData.coverImage}
+            alt="Cover"
+            className="w-full h-full object-cover opacity-80"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-r from-orange-400 to-red-500 opacity-80" />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
       </div>
 
@@ -184,8 +152,8 @@ const UserProfilePage = () => {
           <div className="absolute -top-20 left-0">
             <div className="relative">
               <img
-                src={userData.avatar}
-                alt={userData.name}
+                src={userData?.avatar ?? authUser?.avatar}
+                alt={userData?.name ?? authUser?.name}
                 className="w-40 h-40 rounded-full border-4 border-white shadow-xl"
               />
               <button className="absolute bottom-2 right-2 bg-orange-600 text-white p-2 rounded-full hover:bg-orange-700 transition shadow-lg">
@@ -199,21 +167,21 @@ const UserProfilePage = () => {
             <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between">
               <div className="flex-1 mb-6 lg:mb-0">
                 <div className="flex items-center space-x-3 mb-2">
-                  <h2 className="text-3xl font-bold text-gray-900">{userData.name}</h2>
-                  <Award className="w-6 h-6 text-orange-600" />
-                </div>
-                <p className="text-gray-600 mb-3">{userData.username}</p>
+                      <h2 className="text-3xl font-bold text-gray-900">{userData?.name ?? (authUser?.name ?? 'Profile')}</h2>
+                      <Award className="w-6 h-6 text-orange-600" />
+                    </div>
+                    <p className="text-gray-600 mb-3">{userData?.username ?? authUser?.username ?? ''}</p>
                 
-                <p className="text-gray-700 mb-4 max-w-2xl">{userData.bio}</p>
+                    <p className="text-gray-700 mb-4 max-w-2xl">{userData?.bio ?? ''}</p>
                 
                 <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-4">
                   <div className="flex items-center">
                     <MapPin className="w-4 h-4 mr-1" />
-                    <span>{userData.location}</span>
+                    <span>{userData?.location || ''}</span>
                   </div>
                   <div className="flex items-center">
                     <Calendar className="w-4 h-4 mr-1" />
-                    <span>Joined {userData.joinedDate}</span>
+                    <span>Joined {userData?.joinedDate ?? ''}</span>
                   </div>
                   {userData.website && (
                     <a href="#" className="flex items-center text-orange-600 hover:text-orange-700">
@@ -225,12 +193,12 @@ const UserProfilePage = () => {
 
                 {/* Social Links */}
                 <div className="flex items-center space-x-3">
-                  {userData.social.instagram && (
+                  {userData?.social?.instagram && (
                     <a href="#" className="text-gray-600 hover:text-orange-600">
                       <Instagram className="w-5 h-5" />
                     </a>
                   )}
-                  {userData.social.twitter && (
+                  {userData?.social?.twitter && (
                     <a href="#" className="text-gray-600 hover:text-orange-600">
                       <Twitter className="w-5 h-5" />
                     </a>
@@ -243,34 +211,47 @@ const UserProfilePage = () => {
 
               {/* Action Buttons */}
               <div className="flex items-center space-x-3">
-                <button className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition font-semibold">
-                  Edit Profile
-                </button>
-                <button className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-semibold">
-                  Share Profile
-                </button>
+                {authUser && (String(profileId) === String(authUser.id) || String(profileId) === String(authUser._id)) ? (
+                  <>
+                    <button className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition font-semibold">
+                      Edit Profile
+                    </button>
+                    <button className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-semibold">
+                      Share Profile
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition font-semibold">
+                      Follow
+                    </button>
+                    <button className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-semibold">
+                      Message
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
               <div className="bg-white rounded-lg shadow-md p-4 text-center hover:shadow-lg transition">
-                <div className="text-3xl font-bold text-orange-600 mb-1">{userData.stats.recipes}</div>
+                <div className="text-3xl font-bold text-orange-600 mb-1">{stats.recipes}</div>
                 <div className="text-sm text-gray-600">Recipes</div>
               </div>
               <div className="bg-white rounded-lg shadow-md p-4 text-center hover:shadow-lg transition cursor-pointer">
                 <div className="text-3xl font-bold text-orange-600 mb-1">
-                  {userData.stats.followers.toLocaleString()}
+                  {stats.followers?.toLocaleString?.() ?? '0'}
                 </div>
                 <div className="text-sm text-gray-600">Followers</div>
               </div>
               <div className="bg-white rounded-lg shadow-md p-4 text-center hover:shadow-lg transition cursor-pointer">
-                <div className="text-3xl font-bold text-orange-600 mb-1">{userData.stats.following}</div>
+                <div className="text-3xl font-bold text-orange-600 mb-1">{stats.following ?? 0}</div>
                 <div className="text-sm text-gray-600">Following</div>
               </div>
               <div className="bg-white rounded-lg shadow-md p-4 text-center hover:shadow-lg transition">
                 <div className="text-3xl font-bold text-orange-600 mb-1">
-                  {userData.stats.likes.toLocaleString()}
+                  {stats.likes?.toLocaleString?.() ?? '0'}
                 </div>
                 <div className="text-sm text-gray-600">Total Likes</div>
               </div>
@@ -305,7 +286,7 @@ const UserProfilePage = () => {
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              My Recipes ({userRecipes.length})
+              My Recipes ({loadingRecipes ? '...' : userRecipes.length})
             </button>
             <button
               onClick={() => setActiveTab('saved')}
@@ -315,7 +296,7 @@ const UserProfilePage = () => {
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              Saved ({savedRecipes.length})
+              Saved ({loadingProfile ? '...' : savedRecipes.length})
             </button>
             <button
               onClick={() => setActiveTab('followers')}
@@ -325,7 +306,7 @@ const UserProfilePage = () => {
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              Followers ({userData.stats.followers.toLocaleString()})
+              Followers ({loadingProfile ? '...' : (stats.followers?.toLocaleString?.() ?? '0')})
             </button>
             <button
               onClick={() => setActiveTab('following')}
@@ -335,7 +316,7 @@ const UserProfilePage = () => {
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              Following ({userData.stats.following})
+              Following ({loadingProfile ? '...' : (stats.following ?? 0)})
             </button>
           </div>
         </div>
@@ -345,8 +326,19 @@ const UserProfilePage = () => {
           {/* My Recipes Tab */}
           {activeTab === 'recipes' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {userRecipes.map(recipe => (
-                <div key={recipe.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer">
+              {loadingRecipes && (
+                <div className="col-span-3 flex items-center justify-center py-16">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+                </div>
+              )}
+
+              {!loadingRecipes && userRecipes.length === 0 && (
+                <div className="col-span-3 text-center text-gray-500 py-12">No recipes yet</div>
+              )}
+
+              {!loadingRecipes && userRecipes.length > 0 &&
+                userRecipes.map(recipe => (
+                  <div key={recipe._id || recipe.id} onClick={() => navigate(`/recipes/${recipe._id || recipe.id}`)} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer">
                   <div className="relative h-48">
                     <img
                       src={recipe.image}
@@ -390,8 +382,19 @@ const UserProfilePage = () => {
           {/* Saved Recipes Tab */}
           {activeTab === 'saved' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {savedRecipes.map(recipe => (
-                <div key={recipe.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer">
+              {loadingProfile && (
+                <div className="col-span-3 flex items-center justify-center py-16">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+                </div>
+              )}
+
+              {!loadingProfile && savedRecipes.length === 0 && (
+                <div className="col-span-3 text-center text-gray-500 py-12">No saved recipes</div>
+              )}
+
+              {!loadingProfile && savedRecipes.length > 0 &&
+                savedRecipes.map(recipe => (
+                  <div key={recipe._id || recipe.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer">
                   <div className="relative h-48">
                     <img
                       src={recipe.image}
@@ -423,7 +426,9 @@ const UserProfilePage = () => {
           {/* Followers Tab */}
           {activeTab === 'followers' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {followers.map(follower => (
+              {followers.length === 0 ? (
+                <div className="col-span-3 text-center text-gray-500 py-8">No followers yet</div>
+              ) : followers.map(follower => (
                 <div key={follower.id} className="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition">
                   <div className="flex items-center space-x-4 mb-4">
                     <img
@@ -454,7 +459,9 @@ const UserProfilePage = () => {
           {/* Following Tab */}
           {activeTab === 'following' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {followers.map(follower => (
+              {following.length === 0 ? (
+                <div className="col-span-3 text-center text-gray-500 py-8">Not following anyone yet</div>
+              ) : following.map(follower => (
                 <div key={follower.id} className="bg-white rounded-xl shadow-md p-6 hover:shadow-xl transition">
                   <div className="flex items-center space-x-4 mb-4">
                     <img

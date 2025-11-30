@@ -1,114 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useRecipes } from '../context/RecipeContext';
 import { 
   ChefHat, ArrowLeft, Clock, Users, Star, Bookmark, Share2, 
   Heart, MessageCircle, Printer, CheckCircle, Circle 
 } from 'lucide-react';
 
-// Mock recipe data
-const recipeData = {
-  id: 1,
-  title: "Classic Margherita Pizza",
-  description: "Authentic Italian pizza with fresh mozzarella, tomatoes, and basil. This traditional Neapolitan-style pizza is simple yet absolutely delicious.",
-  image: "https://images.unsplash.com/photo-1604068549290-dea0e4a305ca?w=1200&q=80",
-  author: {
-    name: "Chef Mario",
-    avatar: "https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=100&q=80",
-    recipesCount: 45
-  },
-  cookTime: 30,
-  prepTime: 20,
-  totalTime: 50,
-  servings: 4,
-  rating: 4.8,
-  ratingsCount: 234,
-  difficulty: "Medium",
-  category: "Italian",
-  cuisine: "Italian",
-  createdAt: "2024-01-15",
-  
-  ingredients: [
-    { id: 1, item: "Pizza dough", amount: "500g", category: "Base" },
-    { id: 2, item: "Tomato sauce", amount: "200ml", category: "Base" },
-    { id: 3, item: "Fresh mozzarella", amount: "250g", category: "Toppings" },
-    { id: 4, item: "Fresh basil leaves", amount: "20 leaves", category: "Toppings" },
-    { id: 5, item: "Extra virgin olive oil", amount: "3 tbsp", category: "Base" },
-    { id: 6, item: "Salt", amount: "to taste", category: "Seasoning" },
-    { id: 7, item: "Black pepper", amount: "to taste", category: "Seasoning" },
-  ],
-  
-  instructions: [
-    {
-      step: 1,
-      title: "Prepare the dough",
-      description: "Preheat your oven to 475°F (245°C). If using a pizza stone, place it in the oven while preheating. Roll out your pizza dough on a floured surface to about 12 inches in diameter.",
-      time: "10 min"
-    },
-    {
-      step: 2,
-      title: "Add the sauce",
-      description: "Spread the tomato sauce evenly over the dough, leaving about 1 inch border around the edges for the crust. Don't overload with sauce - less is more for authentic Neapolitan pizza.",
-      time: "2 min"
-    },
-    {
-      step: 3,
-      title: "Add cheese and toppings",
-      description: "Tear the fresh mozzarella into small pieces and distribute evenly over the sauce. Drizzle with olive oil and season with salt and pepper.",
-      time: "3 min"
-    },
-    {
-      step: 4,
-      title: "Bake the pizza",
-      description: "Transfer the pizza to the preheated oven (on the pizza stone if using). Bake for 12-15 minutes or until the crust is golden and the cheese is bubbling and slightly browned.",
-      time: "15 min"
-    },
-    {
-      step: 5,
-      title: "Finish and serve",
-      description: "Remove from oven and immediately top with fresh basil leaves. Drizzle with a little more olive oil if desired. Let cool for 2-3 minutes, slice, and serve hot.",
-      time: "5 min"
-    }
-  ],
-  
-  nutritionInfo: {
-    calories: 285,
-    protein: 12,
-    carbs: 35,
-    fat: 11,
-    fiber: 2
-  },
-  
-  tags: ["Italian", "Pizza", "Vegetarian", "Classic", "Comfort Food"],
-  
-  comments: [
-    {
-      id: 1,
-      user: "Sarah Chen",
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&q=80",
-      rating: 5,
-      comment: "This recipe is absolutely perfect! Made it for my family and everyone loved it. The crust came out crispy and the flavor was authentic.",
-      date: "2024-11-20",
-      likes: 12
-    },
-    {
-      id: 2,
-      user: "John Smith",
-      avatar: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=100&q=80",
-      rating: 4,
-      comment: "Great recipe! I added some garlic to the sauce for extra flavor. Will definitely make again.",
-      date: "2024-11-18",
-      likes: 8
-    },
-    {
-      id: 3,
-      user: "Emma Wilson",
-      avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&q=80",
-      rating: 5,
-      comment: "Best homemade pizza I've ever made. The instructions were clear and easy to follow.",
-      date: "2024-11-15",
-      likes: 15
-    }
-  ]
-};
+// Recipe will be loaded from the RecipeContext using the route param :id
 
 const RecipeDetailPage = () => {
   const [checkedSteps, setCheckedSteps] = useState([]);
@@ -117,6 +15,68 @@ const RecipeDetailPage = () => {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(342);
+  const [recipe, setRecipe] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { getRecipeById, recipes } = useRecipes();
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        if (!id || id === 'undefined') {
+          // If no valid id was provided, redirect to recipes list
+          navigate('/recipes');
+          return;
+        }
+        const result = await getRecipeById(id);
+        if (!mounted) return;
+        if (result.success && result.recipe) {
+          setRecipe(result.recipe);
+          setLikesCount(result.recipe.likesCount ?? (Array.isArray(result.recipe.likes) ? result.recipe.likes.length : 0));
+          setIsLiked(result.recipe.isLiked ?? false);
+        } else {
+          // If the API didn't return a recipe, try a local in-memory fallback (useful immediately after creating)
+          const fallback = recipes?.find(r => (r._id ?? r.id)?.toString() === id?.toString());
+          if (fallback) {
+            setRecipe(fallback);
+            setLikesCount(fallback.likesCount ?? (Array.isArray(fallback.likes) ? fallback.likes.length : 0));
+            setIsLiked(fallback.isLiked ?? false);
+          } else {
+            // Last resort: check localStorage for a recently-created recipe (persisted by Create page)
+            try {
+              const stored = JSON.parse(localStorage.getItem('recentlyCreatedRecipes') || '[]');
+              const ls = stored.find(r => r.id === id || (r.recipe?._id ?? r.recipe?.id)?.toString() === id?.toString());
+              if (ls) {
+                setRecipe(ls.recipe);
+                setLikesCount(ls.recipe.likesCount ?? (Array.isArray(ls.recipe.likes) ? ls.recipe.likes.length : 0));
+                setIsLiked(ls.recipe.isLiked ?? false);
+                return;
+              }
+            } catch (e) {
+              // ignore
+            }
+
+            setError(result.error || 'Recipe not found');
+          }
+        }
+      } catch (err) {
+        setError(err.message || 'Failed to load');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    load();
+
+    return () => { mounted = false; };
+  }, [id, getRecipeById]);
 
   const toggleStep = (stepNum) => {
     setCheckedSteps(prev => 
@@ -153,7 +113,7 @@ const RecipeDetailPage = () => {
   };
 
   // Group ingredients by category
-  const groupedIngredients = recipeData.ingredients.reduce((acc, ingredient) => {
+  const groupedIngredients = (recipe?.ingredients || []).reduce((acc, ingredient) => {
     if (!acc[ingredient.category]) {
       acc[ingredient.category] = [];
     }
@@ -161,10 +121,43 @@ const RecipeDetailPage = () => {
     return acc;
   }, {});
 
+  // Loading / error states
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-semibold text-gray-800">{error}</h2>
+          <button
+            onClick={() => navigate(-1)}
+            className="mt-4 px-4 py-2 bg-orange-600 text-white rounded-lg"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!recipe) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center text-gray-600">Recipe not found</div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-md sticky top-0 z-50">
+      {/* <header className="bg-white shadow-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
@@ -187,13 +180,13 @@ const RecipeDetailPage = () => {
             </div>
           </div>
         </div>
-      </header>
+      </header> */}
 
       {/* Hero Image Section */}
       <div className="relative h-96 bg-gray-900">
         <img
-          src={recipeData.image}
-          alt={recipeData.title}
+          src={recipe?.image}
+          alt={recipe?.title}
           className="w-full h-full object-cover opacity-90"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
@@ -203,18 +196,18 @@ const RecipeDetailPage = () => {
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center space-x-3 mb-3">
               <span className="bg-orange-600 px-3 py-1 rounded-full text-sm font-semibold">
-                {recipeData.category}
+                {recipe?.category}
               </span>
               <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                recipeData.difficulty === 'Easy' ? 'bg-green-600' :
-                recipeData.difficulty === 'Medium' ? 'bg-yellow-600' :
+                recipe?.difficulty === 'Easy' ? 'bg-green-600' :
+                recipe?.difficulty === 'Medium' ? 'bg-yellow-600' :
                 'bg-red-600'
               }`}>
-                {recipeData.difficulty}
+                {recipe?.difficulty}
               </span>
             </div>
-            <h2 className="text-5xl font-bold mb-2">{recipeData.title}</h2>
-            <p className="text-xl text-gray-200">{recipeData.description}</p>
+            <h2 className="text-5xl font-bold mb-2">{recipe?.title}</h2>
+            <p className="text-xl text-gray-200">{recipe?.description}</p>
           </div>
         </div>
       </div>
@@ -231,20 +224,20 @@ const RecipeDetailPage = () => {
                     <Clock className="w-5 h-5 text-gray-500 mr-2" />
                     <div>
                       <div className="text-sm text-gray-500">Total Time</div>
-                      <div className="font-semibold">{recipeData.totalTime} min</div>
+                      <div className="font-semibold">{recipe?.totalTime ?? '-'} min</div>
                     </div>
                   </div>
                   <div className="flex items-center">
                     <Users className="w-5 h-5 text-gray-500 mr-2" />
                     <div>
                       <div className="text-sm text-gray-500">Servings</div>
-                      <div className="font-semibold">{recipeData.servings} people</div>
+                      <div className="font-semibold">{recipe?.servings ?? '-'} people</div>
                     </div>
                   </div>
                   <div className="flex items-center">
-                    <div className="flex">{renderStars(recipeData.rating)}</div>
-                    <span className="ml-2 font-semibold">{recipeData.rating}</span>
-                    <span className="ml-1 text-gray-500 text-sm">({recipeData.ratingsCount})</span>
+                    <div className="flex">{renderStars(recipe?.rating ?? 0)}</div>
+                    <span className="ml-2 font-semibold">{recipe?.rating ?? '-'}</span>
+                    <span className="ml-1 text-gray-500 text-sm">({recipe?.ratingsCount ?? 0})</span>
                   </div>
                 </div>
                 
@@ -282,13 +275,13 @@ const RecipeDetailPage = () => {
               {/* Author Info */}
               <div className="flex items-center space-x-4 pt-6 border-t">
                 <img
-                  src={recipeData.author.avatar}
-                  alt={recipeData.author.name}
+                  src={recipe?.author?.avatar}
+                  alt={recipe?.author?.name}
                   className="w-12 h-12 rounded-full"
                 />
                 <div>
-                  <div className="font-semibold text-gray-900">{recipeData.author.name}</div>
-                  <div className="text-sm text-gray-500">{recipeData.author.recipesCount} recipes shared</div>
+                  <div className="font-semibold text-gray-900">{recipe?.author?.name || 'Unknown'}</div>
+                  <div className="text-sm text-gray-500">{recipe?.author?.recipesCount ?? recipe?.author?.recipeCount ?? 0} recipes shared</div>
                 </div>
                 <button className="ml-auto px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition">
                   Follow
@@ -320,7 +313,7 @@ const RecipeDetailPage = () => {
                   >
                     Nutrition
                   </button>
-                  <button
+                    <button
                     onClick={() => setActiveTab('comments')}
                     className={`flex-1 px-6 py-4 font-semibold transition ${
                       activeTab === 'comments'
@@ -328,7 +321,7 @@ const RecipeDetailPage = () => {
                         : 'text-gray-600 hover:text-gray-900'
                     }`}
                   >
-                    Comments ({recipeData.comments.length})
+                    Comments ({(recipe?.comments || []).length})
                   </button>
                 </div>
               </div>
@@ -337,7 +330,7 @@ const RecipeDetailPage = () => {
                 {/* Instructions Tab */}
                 {activeTab === 'instructions' && (
                   <div className="space-y-6">
-                    {recipeData.instructions.map((instruction) => (
+                    {(recipe?.instructions || []).map((instruction) => (
                       <div key={instruction.step} className="flex space-x-4">
                         <button
                           onClick={() => toggleStep(instruction.step)}
@@ -356,7 +349,7 @@ const RecipeDetailPage = () => {
                             </h4>
                             <span className="text-sm text-gray-500">{instruction.time}</span>
                           </div>
-                          <p className="text-gray-700">{instruction.description}</p>
+                              <p className="text-gray-700">{instruction.description}</p>
                         </div>
                       </div>
                     ))}
@@ -367,26 +360,26 @@ const RecipeDetailPage = () => {
                 {activeTab === 'nutrition' && (
                   <div>
                     <h3 className="text-xl font-bold mb-4">Nutrition Information</h3>
-                    <p className="text-gray-600 mb-6">Per serving (based on {recipeData.servings} servings)</p>
+                    <p className="text-gray-600 mb-6">Per serving (based on {recipe?.servings ?? '-'} servings)</p>
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                       <div className="bg-orange-50 p-4 rounded-lg text-center">
-                        <div className="text-3xl font-bold text-orange-600">{recipeData.nutritionInfo.calories}</div>
+                        <div className="text-3xl font-bold text-orange-600">{recipe?.nutritionInfo?.calories ?? '-'}</div>
                         <div className="text-sm text-gray-600 mt-1">Calories</div>
                       </div>
                       <div className="bg-blue-50 p-4 rounded-lg text-center">
-                        <div className="text-3xl font-bold text-blue-600">{recipeData.nutritionInfo.protein}g</div>
+                        <div className="text-3xl font-bold text-blue-600">{recipe?.nutritionInfo?.protein ?? '-'}g</div>
                         <div className="text-sm text-gray-600 mt-1">Protein</div>
                       </div>
                       <div className="bg-yellow-50 p-4 rounded-lg text-center">
-                        <div className="text-3xl font-bold text-yellow-600">{recipeData.nutritionInfo.carbs}g</div>
+                        <div className="text-3xl font-bold text-yellow-600">{recipe?.nutritionInfo?.carbs ?? '-'}g</div>
                         <div className="text-sm text-gray-600 mt-1">Carbs</div>
                       </div>
                       <div className="bg-red-50 p-4 rounded-lg text-center">
-                        <div className="text-3xl font-bold text-red-600">{recipeData.nutritionInfo.fat}g</div>
+                        <div className="text-3xl font-bold text-red-600">{recipe?.nutritionInfo?.fat ?? '-'}g</div>
                         <div className="text-sm text-gray-600 mt-1">Fat</div>
                       </div>
                       <div className="bg-green-50 p-4 rounded-lg text-center">
-                        <div className="text-3xl font-bold text-green-600">{recipeData.nutritionInfo.fiber}g</div>
+                        <div className="text-3xl font-bold text-green-600">{recipe?.nutritionInfo?.fiber ?? '-'}g</div>
                         <div className="text-sm text-gray-600 mt-1">Fiber</div>
                       </div>
                     </div>
@@ -419,7 +412,7 @@ const RecipeDetailPage = () => {
                     </div>
 
                     {/* Comments List */}
-                    {recipeData.comments.map((comment) => (
+                    {(recipe?.comments || []).map((comment) => (
                       <div key={comment.id} className="border-b pb-6 last:border-b-0">
                         <div className="flex space-x-4">
                           <img
@@ -430,19 +423,19 @@ const RecipeDetailPage = () => {
                           <div className="flex-1">
                             <div className="flex items-center justify-between mb-2">
                               <div>
-                                <div className="font-semibold text-gray-900">{comment.user}</div>
+                                  <div className="font-semibold text-gray-900">{comment.user?.name || comment.user || 'Anonymous'}</div>
                                 <div className="flex items-center space-x-2 text-sm text-gray-500">
-                                  <span>{comment.date}</span>
+                                  <span>{comment.createdAt ? new Date(comment.createdAt).toLocaleDateString() : comment.date || ''}</span>
                                   <span>•</span>
                                   <div className="flex">{renderStars(comment.rating)}</div>
                                 </div>
                               </div>
                             </div>
-                            <p className="text-gray-700 mb-3">{comment.comment}</p>
+                            <p className="text-gray-700 mb-3">{comment.text ?? comment.comment}</p>
                             <div className="flex items-center space-x-4 text-sm">
                               <button className="flex items-center space-x-1 text-gray-500 hover:text-orange-600">
                                 <Heart className="w-4 h-4" />
-                                <span>{comment.likes}</span>
+                                <span>{comment.likes ?? 0}</span>
                               </button>
                               <button className="text-gray-500 hover:text-orange-600">Reply</button>
                             </div>
@@ -503,7 +496,7 @@ const RecipeDetailPage = () => {
             <div className="bg-white rounded-xl shadow-md p-6">
               <h3 className="text-lg font-bold mb-3">Tags</h3>
               <div className="flex flex-wrap gap-2">
-                {recipeData.tags.map((tag, index) => (
+                {(recipe?.tags || []).map((tag, index) => (
                   <span
                     key={index}
                     className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-orange-50 hover:text-orange-600 cursor-pointer transition"

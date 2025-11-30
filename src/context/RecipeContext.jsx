@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 // import authService from '../services/authService';
 import recipeService from '../services/recipeService';
 
@@ -144,7 +144,7 @@ export const RecipeProvider = ({ children }) => {
   //   }
   // };
 
-  const fetchRecipes = async (filterOptions = {}) => {
+  const fetchRecipes = useCallback(async (filterOptions = {}) => {
   try {
     setLoading(true);
     setError(null);
@@ -163,7 +163,18 @@ export const RecipeProvider = ({ children }) => {
   } finally {
     setLoading(false);
   }
-};
+}, []);
+
+  // Helper to compare recipe IDs (handles _id object/string and id)
+  const idsMatch = (recipe, idToMatch) => {
+    if (!recipe || !idToMatch) return false;
+    const rId = recipe._id ?? recipe.id;
+    // Normalize to strings when possible
+    if (rId && typeof rId.toString === 'function') {
+      return rId.toString() === idToMatch.toString();
+    }
+    return String(rId) === String(idToMatch);
+  };
 
   // const getRecipeById = async (id) => {
   //   try {
@@ -189,7 +200,7 @@ export const RecipeProvider = ({ children }) => {
   //   }
   // };
 
-  const getRecipeById = async (id) => {
+  const getRecipeById = useCallback(async (id) => {
   try {
     setLoading(true);
     setError(null);
@@ -198,13 +209,13 @@ export const RecipeProvider = ({ children }) => {
     const result = await recipeService.getRecipeById(id);
 
     return result;
-  } catch (err) {
+    } catch (err) {
     setError(err.message);
     return { success: false, error: err.message };
   } finally {
     setLoading(false);
   }
-};
+}, []);
 
   // const createRecipe = async (recipeData) => {
   //   try {
@@ -233,7 +244,7 @@ export const RecipeProvider = ({ children }) => {
   //   }
   // };
 
-  const createRecipe = async (recipeData) => {
+  const createRecipe = useCallback(async (recipeData) => {
   try {
     setLoading(true);
     setError(null);
@@ -252,7 +263,7 @@ export const RecipeProvider = ({ children }) => {
   } finally {
     setLoading(false);
   }
-};
+}, []);
 
   // const updateRecipe = async (id, updates) => {
   //   try {
@@ -276,7 +287,7 @@ export const RecipeProvider = ({ children }) => {
   //   }
   // };
 
-  const updateRecipe = async (id, updates) => {
+  const updateRecipe = useCallback(async (id, updates) => {
   try {
     setLoading(true);
     setError(null);
@@ -286,7 +297,7 @@ export const RecipeProvider = ({ children }) => {
 
     if (result.success) {
       setRecipes(prev => prev.map(recipe => 
-        recipe.id === id ? result.recipe : recipe
+        idsMatch(recipe, id) ? result.recipe : recipe
       ));
     }
 
@@ -297,7 +308,7 @@ export const RecipeProvider = ({ children }) => {
   } finally {
     setLoading(false);
   }
-};
+}, []);
 
   // const deleteRecipe = async (id) => {
   //   try {
@@ -319,7 +330,7 @@ export const RecipeProvider = ({ children }) => {
   // }
 
 
-const deleteRecipe = async (id) => {
+const deleteRecipe = useCallback(async (id) => {
   try {
     setLoading(true);
     setError(null);
@@ -328,7 +339,7 @@ const deleteRecipe = async (id) => {
     const result = await recipeService.deleteRecipe(id);
 
     if (result.success) {
-      setRecipes(prev => prev.filter(recipe => recipe.id !== id));
+      setRecipes(prev => prev.filter(recipe => !idsMatch(recipe, id)));
     }
 
     return result;
@@ -338,9 +349,9 @@ const deleteRecipe = async (id) => {
   } finally {
     setLoading(false);
   }
-};
+}, []);
 
-  const toggleSaveRecipe = (recipeId) => {
+  const toggleSaveRecipe = useCallback((recipeId) => {
     setSavedRecipes(prev => {
       const isSaved = prev.includes(recipeId);
       const updated = isSaved 
@@ -350,7 +361,7 @@ const deleteRecipe = async (id) => {
       localStorage.setItem('savedRecipes', JSON.stringify(updated));
       return updated;
     });
-  };
+  }, []);
 
   // const likeRecipe = async (recipeId) => {
   //   try {
@@ -371,7 +382,7 @@ const deleteRecipe = async (id) => {
   //   }
   // };
 
-  const likeRecipe = async (recipeId) => {
+  const likeRecipe = useCallback(async (recipeId) => {
   try {
     // Use real API service
     const result = await recipeService.likeRecipe(recipeId);
@@ -379,7 +390,7 @@ const deleteRecipe = async (id) => {
     if (result.success) {
       // Update recipe in local state
       setRecipes(prev => prev.map(recipe =>
-        recipe.id === recipeId
+        idsMatch(recipe, recipeId)
           ? { ...recipe, likes: result.likes, isLiked: result.isLiked }
           : recipe
       ));
@@ -390,7 +401,7 @@ const deleteRecipe = async (id) => {
     console.error('Like failed:', err);
     return { success: false, error: err.message };
   }
-};
+}, []);
 
   // const searchRecipes = async (query) => {
   //   try {
@@ -417,7 +428,7 @@ const deleteRecipe = async (id) => {
   //   }
   // };
 
-  const searchRecipes = async (query) => {
+  const searchRecipes = useCallback(async (query) => {
   try {
     setLoading(true);
     setError(null);
@@ -436,7 +447,7 @@ const deleteRecipe = async (id) => {
   } finally {
     setLoading(false);
   }
-};
+}, []);
 
   const value = {
     recipes,
