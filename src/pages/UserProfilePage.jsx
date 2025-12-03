@@ -6,15 +6,24 @@ import userService from '../services/userService';
 import { 
   ChefHat, ArrowLeft, Settings, MapPin, Calendar, Users, 
   Heart, Bookmark, Clock, Star, Edit, Share2, Mail,
-  Instagram, Twitter, Globe, Award, TrendingUp
+  Instagram, Twitter, Globe, Award, TrendingUp, LogOut
 } from 'lucide-react';
 
 const UserProfilePage = () => {
   const [activeTab, setActiveTab] = useState('recipes'); // recipes, saved, followers, following
 
-  const { user: authUser, isAuthenticated } = useAuth();
+  const { user: authUser, isAuthenticated, signOut } = useAuth();
   const { userId } = useParams();
   const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate('/auth');
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+  };
 
   const profileId = userId || authUser?.id || authUser?._id;
 
@@ -183,10 +192,10 @@ const UserProfilePage = () => {
                     <Calendar className="w-4 h-4 mr-1" />
                     <span>Joined {userData?.joinedDate ?? ''}</span>
                   </div>
-                  {userData.website && (
+                  {userData?.website && (
                     <a href="#" className="flex items-center text-orange-600 hover:text-orange-700">
                       <Globe className="w-4 h-4 mr-1" />
-                      <span>{userData.website}</span>
+                      <span>{userData?.website}</span>
                     </a>
                   )}
                 </div>
@@ -218,6 +227,13 @@ const UserProfilePage = () => {
                     </button>
                     <button className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-semibold">
                       Share Profile
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-semibold flex items-center space-x-2"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Logout</span>
                     </button>
                   </>
                 ) : (
@@ -261,7 +277,7 @@ const UserProfilePage = () => {
             <div className="mt-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-3">Achievements</h3>
               <div className="flex flex-wrap gap-3">
-                {userData.badges.map(badge => (
+                {userData?.badges?.map(badge => (
                   <div
                     key={badge.id}
                     className={`flex items-center space-x-2 px-4 py-2 rounded-full ${badge.color} font-semibold`}
@@ -269,7 +285,7 @@ const UserProfilePage = () => {
                     <span className="text-xl">{badge.icon}</span>
                     <span>{badge.name}</span>
                   </div>
-                ))}
+                )) || <span className="text-gray-500">No achievements yet</span>}
               </div>
             </div>
           </div>

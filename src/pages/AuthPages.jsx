@@ -100,18 +100,25 @@ const AuthPages = () => {
       let result;
       
       if (isSignIn) {
-        // Sign In with real API
+        // Sign In with real API - call with email and password
         result = await signIn(formData.email, formData.password);
       } else {
-        // Sign Up with real API
+        // Sign Up with real API - call with name, email, and password
         result = await signUp(formData.name, formData.email, formData.password);
       }
       
       if (result.success) {
-        // Success! Navigate to home page
+        // Success! Clear form and navigate to home page
+        setFormData({
+          name: '',
+          email: '',
+          password: '',
+          confirmPassword: ''
+        });
+        setErrors({});
         navigate('/');
       } else {
-        // Show error message
+        // Show error message from server
         setErrors({ submit: result.error || 'Authentication failed' });
       }
     } catch (err) {

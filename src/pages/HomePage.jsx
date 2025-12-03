@@ -161,25 +161,39 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="py-12 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-            <div className="p-6">
-              <div className="text-4xl font-bold text-orange-600 mb-2">10,000+</div>
-              <div className="text-gray-600">Recipes Shared</div>
+      {/* Stats Section (computed from live data with graceful fallback) */}
+      {(() => {
+        const list = allRecipes || [];
+        const recipesCount = list.length;
+        const cooksCount = new Set(
+          list.map(r => (r?.author && (r.author._id || r.author.id)) || r.author || '')
+            .filter(Boolean)
+        ).size;
+        const cuisinesCount = new Set(
+          list.map(r => r?.cuisine || r?.category || '').filter(Boolean)
+        ).size;
+
+        return (
+          <section className="py-12 bg-white">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+                <div className="p-6">
+                  <div className="text-4xl font-bold text-orange-600 mb-2">{recipesCount.toLocaleString()}</div>
+                  <div className="text-gray-600">Recipes Shared</div>
+                </div>
+                <div className="p-6">
+                  <div className="text-4xl font-bold text-orange-600 mb-2">{cooksCount.toLocaleString()}</div>
+                  <div className="text-gray-600">Active Cooks</div>
+                </div>
+                <div className="p-6">
+                  <div className="text-4xl font-bold text-orange-600 mb-2">{cuisinesCount.toLocaleString()}</div>
+                  <div className="text-gray-600">Cuisines</div>
+                </div>
+              </div>
             </div>
-            <div className="p-6">
-              <div className="text-4xl font-bold text-orange-600 mb-2">5,000+</div>
-              <div className="text-gray-600">Active Cooks</div>
-            </div>
-            <div className="p-6">
-              <div className="text-4xl font-bold text-orange-600 mb-2">50+</div>
-              <div className="text-gray-600">Cuisines</div>
-            </div>
-          </div>
-        </div>
-      </section>
+          </section>
+        );
+      })()}
 
       {/* Featured Recipes */}
       <section className="py-16">
